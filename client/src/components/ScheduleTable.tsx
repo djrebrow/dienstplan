@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { ReactTabulator } from '@tabulator-tables/react';
-import { addDays, differenceInCalendarDays, parseISO, format } from 'date-fns';
+import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 import { useScheduleStore, getFormattedDateLabel } from '../hooks/useScheduleStore';
 import { getLowerSaxonyHolidayMap } from '../utils/holidays';
+import { buildWeekdayGroups, flattenWeekdays } from '../utils/dateRanges';
 import 'tabulator-tables/dist/css/tabulator.min.css';
 import '../styles/tabulator.css';
 
 const ScheduleTable = () => {
+  const { t } = useTranslation();
   const tableRef = useRef<ReactTabulator | null>(null);
   const {
     employees,
@@ -28,24 +31,28 @@ const ScheduleTable = () => {
     updateCell: state.updateCell
   }));
 
-  const start = useMemo(() => parseISO(rangeStart), [rangeStart]);
-  const dayCount = useMemo(
-    () => differenceInCalendarDays(parseISO(rangeEnd), parseISO(rangeStart)) + 1,
+  const weekGroups = useMemo(
+    () => buildWeekdayGroups(rangeStart, rangeEnd),
     [rangeStart, rangeEnd]
   );
 
+  const workingDays = useMemo(() => flattenWeekdays(weekGroups), [weekGroups]);
+
   const holidays = useMemo(() => {
     const map = new Map<string, string>();
-    for (let i = 0; i < dayCount; i += 1) {
-      const current = addDays(start, i);
-      const yearMap = getLowerSaxonyHolidayMap(current.getFullYear());
-      const key = format(current, 'yyyy-MM-dd');
+    const holidayCache = new Map<number, Map<string, string>>();
+    workingDays.forEach(({ date, key }) => {
+      const year = date.getFullYear();
+      if (!holidayCache.has(year)) {
+        holidayCache.set(year, getLowerSaxonyHolidayMap(year));
+      }
+      const yearMap = holidayCache.get(year)!;
       if (yearMap.has(key)) {
         map.set(key, yearMap.get(key)!);
       }
-    }
+    });
     return map;
-  }, [start, dayCount]);
+  }, [workingDays]);
 
   const filteredEmployees = useMemo(() => {
     return employees.filter((employee) => {
@@ -70,18 +77,16 @@ const ScheduleTable = () => {
         id: employee.id,
         employee: employee.name
       };
-      for (let i = 0; i < dayCount; i += 1) {
-        const current = addDays(start, i);
-        const key = format(current, 'yyyy-MM-dd');
+      workingDays.forEach(({ key }) => {
         const match = cells.find(
           (cell) => cell.employeeId === employee.id && cell.date === key
         );
         row[key] = match?.shiftType ?? '';
-      }
+      });
       return row;
     });
     return rows;
-  }, [filteredEmployees, cells, dayCount, start]);
+  }, [filteredEmployees, cells, workingDays]);
 
   const shiftOptions = useMemo(
     () =>
@@ -93,30 +98,30 @@ const ScheduleTable = () => {
   );
 
   const dayColumns = useMemo(() => {
-    const columns = [];
-    for (let i = 0; i < dayCount; i += 1) {
-      const current = addDays(start, i);
-      const key = format(current, 'yyyy-MM-dd');
-      const holiday = holidays.get(key);
-      columns.push({
-        title: `${getFormattedDateLabel(current)}${holiday ? `\n${holiday}` : ''}`,
-        field: key,
-        width: 150,
-        hozAlign: 'center',
-        headerWordWrap: true,
-        editable: isAdmin && !holiday,
-        editor: isAdmin && !holiday ? 'list' : undefined,
-        editorParams: isAdmin && !holiday ? { values: shiftOptions, listOnEmpty: true } : undefined,
-        cssClass: holiday ? 'holiday-cell' : 'working-day-cell',
-        cellDblClick: (e: Event, cell: any) => {
-          if (isAdmin && !holiday && !cell.getValue()) {
-            cell.edit(true);
+    return weekGroups.map((week) => ({
+      title: `${t('weekLabel', { index: week.index + 1 })}\n(${format(week.start, 'dd.MM.yyyy')})`,
+      headerWordWrap: true,
+      columns: week.days.map(({ date, key }) => {
+        const holiday = holidays.get(key);
+        return {
+          title: `${getFormattedDateLabel(date)}${holiday ? `\n${holiday}` : ''}`,
+          field: key,
+          width: 150,
+          hozAlign: 'center',
+          headerWordWrap: true,
+          editable: isAdmin && !holiday,
+          editor: isAdmin && !holiday ? 'list' : undefined,
+          editorParams: isAdmin && !holiday ? { values: shiftOptions, listOnEmpty: true } : undefined,
+          cssClass: holiday ? 'holiday-cell' : 'working-day-cell',
+          cellDblClick: (e: Event, cell: any) => {
+            if (isAdmin && !holiday && !cell.getValue()) {
+              cell.edit(true);
+            }
           }
-        }
-      });
-    }
-    return columns;
-  }, [dayCount, start, holidays, shiftOptions, isAdmin]);
+        };
+      })
+    }));
+  }, [weekGroups, holidays, shiftOptions, isAdmin, t]);
 
   const columns = useMemo(
     () => [
@@ -145,13 +150,11 @@ const ScheduleTable = () => {
           action: (_e, row) => {
             if (!isAdmin) return;
             const rowData = row.getData();
-            for (let i = 0; i < dayCount; i += 1) {
-              const current = addDays(start, i);
-              const key = format(current, 'yyyy-MM-dd');
+            workingDays.forEach(({ key }) => {
               if (!holidays.has(key)) {
                 updateCell({ employeeId: rowData.id, date: key, shiftType: 'Frei' });
               }
-            }
+            });
           }
         },
         {
@@ -159,17 +162,15 @@ const ScheduleTable = () => {
           action: (_e, row) => {
             if (!isAdmin) return;
             const rowData = row.getData();
-            for (let i = 0; i < dayCount; i += 1) {
-              const current = addDays(start, i);
-              const key = format(current, 'yyyy-MM-dd');
+            workingDays.forEach(({ key }) => {
               updateCell({ employeeId: rowData.id, date: key, shiftType: '' });
-            }
+            });
           }
         }
       ],
       dataTree: false
     }),
-    [isAdmin, dayCount, start, holidays, updateCell]
+    [isAdmin, holidays, updateCell, workingDays]
   );
 
   useEffect(() => {

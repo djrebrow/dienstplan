@@ -1,6 +1,7 @@
-import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { useTranslation } from 'react-i18next';
+import { useMemo } from 'react';
 import { useScheduleStore } from '../hooks/useScheduleStore';
+import { buildWeekdayGroups } from '../utils/dateRanges';
 
 const StatisticsPanel = () => {
   const { t } = useTranslation();
@@ -12,12 +13,23 @@ const StatisticsPanel = () => {
     shiftTypes: state.shiftTypes
   }));
 
-  const start = parseISO(rangeStart);
-  const days = differenceInCalendarDays(parseISO(rangeEnd), start) + 1;
-  const weeks = Math.ceil(days / 7);
+  const weekGroups = useMemo(
+    () => buildWeekdayGroups(rangeStart, rangeEnd),
+    [rangeStart, rangeEnd]
+  );
+
+  const weekIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    weekGroups.forEach((week) => {
+      week.days.forEach((day) => {
+        map.set(day.key, week.index);
+      });
+    });
+    return map;
+  }, [weekGroups]);
 
   const statistics = employees.map((employee) => {
-    const perWeek = Array.from({ length: weeks }, () =>
+    const perWeek = Array.from({ length: weekGroups.length }, () =>
       shiftTypes.reduce<Record<string, number>>((acc, shift) => {
         acc[shift] = 0;
         return acc;
@@ -26,12 +38,12 @@ const StatisticsPanel = () => {
     cells
       .filter((cell) => cell.employeeId === employee.id)
       .forEach((cell) => {
-        const date = parseISO(cell.date);
-        const diff = differenceInCalendarDays(date, start);
-        if (diff < 0 || diff >= days) return;
-        const weekIndex = Math.floor(diff / 7);
-        if (cell.shiftType && perWeek[weekIndex][cell.shiftType] !== undefined) {
-          perWeek[weekIndex][cell.shiftType] += 1;
+        const weekIndex = weekIndexMap.get(cell.date);
+        if (weekIndex === undefined) return;
+        const weekBucket = perWeek[weekIndex];
+        if (!weekBucket) return;
+        if (cell.shiftType && weekBucket[cell.shiftType] !== undefined) {
+          weekBucket[cell.shiftType] += 1;
         }
       });
     return { employee, perWeek };
@@ -44,9 +56,9 @@ const StatisticsPanel = () => {
         <thead>
           <tr>
             <th className="border px-3 py-2 text-left">{t('employee')}</th>
-            {Array.from({ length: weeks }, (_, index) => (
+            {weekGroups.map((_, index) => (
               <th key={index} className="border px-3 py-2 text-center">
-                KW {index + 1}
+                {t('weekLabel', { index: index + 1 })}
               </th>
             ))}
           </tr>

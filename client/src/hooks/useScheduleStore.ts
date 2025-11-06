@@ -61,7 +61,7 @@ const clonePayload = (payload: SchedulePayload): SchedulePayload => ({
 export const useScheduleStore = create<ScheduleState>((set, get) => ({
   ...defaultState,
   loading: false,
-  isAdmin: true,
+  isAdmin: false,
   filters: {
     employeeName: '',
     shiftType: '',

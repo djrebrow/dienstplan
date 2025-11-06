@@ -26,7 +26,10 @@ const resources = {
       weeks: 'Wochen',
       includeExisting: 'Bestehende Einträge übernehmen',
       apply: 'Übernehmen',
-      employees: 'Mitarbeiterliste'
+      employees: 'Mitarbeiterliste',
+      weekLabel: 'Woche {{index}}',
+      adminPasswordPrompt: 'Bitte Admin-Passwort eingeben:',
+      adminPasswordInvalid: 'Das Passwort ist ungültig.'
     }
   }
 };

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { addDays, differenceInCalendarDays, parseISO, format } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -12,6 +11,7 @@ import EmployeeDialog from './components/EmployeeDialog';
 import CalendarDialog from './components/CalendarDialog';
 import { useScheduleStore } from './hooks/useScheduleStore';
 import type { ScheduleCell } from './types';
+import { buildWeekdayGroups, flattenWeekdays } from './utils/dateRanges';
 
 const App = () => {
   const { t } = useTranslation();
@@ -55,17 +55,22 @@ const App = () => {
     load();
   }, [load]);
 
+  const weekGroups = useMemo(
+    () => buildWeekdayGroups(rangeStart, rangeEnd),
+    [rangeStart, rangeEnd]
+  );
+
+  const workingDays = useMemo(() => flattenWeekdays(weekGroups), [weekGroups]);
+
+  const workingDaySet = useMemo(
+    () => new Set(workingDays.map((day) => day.key)),
+    [workingDays]
+  );
+
   const matrix = useMemo(() => {
-    const start = parseISO(rangeStart);
-    const days = differenceInCalendarDays(parseISO(rangeEnd), start) + 1;
     const header = ['Mitarbeiter'];
-    const columns: string[] = [];
-    for (let i = 0; i < days; i += 1) {
-      const current = addDays(start, i);
-      const key = format(current, 'yyyy-MM-dd');
-      columns.push(key);
-      header.push(format(current, 'dd.MM.yyyy'));
-    }
+    const columns: string[] = workingDays.map((day) => day.key);
+    header.push(...workingDays.map((day) => day.display));
     const rows = employees.map((employee) => {
       const row = [employee.name];
       for (const key of columns) {
@@ -128,9 +133,11 @@ const App = () => {
       if (!employee) return;
       values.forEach((value, index) => {
         if (!value) return;
+        const dateKey = dateColumns[index];
+        if (!workingDaySet.has(dateKey)) return;
         importedCells.push({
           employeeId: employee.id,
-          date: dateColumns[index],
+          date: dateKey,
           shiftType: value
         });
       });
@@ -149,6 +156,22 @@ const App = () => {
 
   const totalLegendText = useMemo(() => Object.values(legend).join(' | '), [legend]);
 
+  const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD ?? 'dienstplan';
+
+  const handleAdminToggle = () => {
+    if (isAdmin) {
+      setAdmin(false);
+      return;
+    }
+    const entered = window.prompt(t('adminPasswordPrompt'));
+    if (entered === null) return;
+    if (entered === adminPassword) {
+      setAdmin(true);
+    } else {
+      window.alert(t('adminPasswordInvalid'));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200 text-slate-900 print:a3">
       <header className="sticky top-0 z-40 backdrop-blur bg-white/80 border-b">
@@ -159,7 +182,7 @@ const App = () => {
           </div>
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setAdmin(!isAdmin)}
+              onClick={handleAdminToggle}
               className="px-4 py-2 rounded border border-primary text-primary hover:bg-primary hover:text-white"
             >
               {isAdmin ? t('publicView') : t('adminArea')}

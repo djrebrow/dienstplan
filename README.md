@@ -44,7 +44,19 @@ Die gebauten Artefakte liegen anschließend in `client/dist` sowie `server/dist`
 - Druckoptimierte Ansicht mit Sticky-Header und responsivem Einspaltenlayout auf Mobilgeräten.
 - Bearbeitbare Mitarbeiterliste inklusive Reihenfolge-Steuerung.
 - Kalender-Dialog zur Neuberechnung des Planungszeitraums (inkl. optionaler Übernahme bestehender Einträge).
-- Getrennter Adminbereich (Bearbeitung) und öffentlicher schreibgeschützter Modus.
+- Wochentrennung mit ausschließlich angezeigten Werktagen (Mo–Fr) pro Abschnitt.
+- Passwortgeschützter Adminbereich (Bearbeitung) und öffentlicher schreibgeschützter Modus.
+
+## Admin-Zugang
+
+Der Bearbeitungsmodus lässt sich per Button im Kopfbereich aktivieren. Standardmäßig wird das Passwort
+`dienstplan` erwartet. Für produktive Deployments kann der Wert über eine `.env`-Datei im Frontend angepasst werden:
+
+```bash
+echo "VITE_ADMIN_PASSWORD=meinGeheimesPasswort" >> client/.env
+```
+
+Nach einem Neustart des Frontends greift die neue Einstellung.
 
 ## Tests
 
