@@ -1,0 +1,33 @@
+.tabulator .tabulator-header .tabulator-col {
+  background-color: #005f73;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.tabulator .tabulator-table {
+  font-size: 0.9rem;
+}
+
+.tabulator-row.high-contrast-row {
+  background-color: #000;
+  color: #fff;
+}
+
+.holiday-cell {
+  background-color: #fef08a !important;
+  color: #78350f;
+}
+
+.working-day-cell {
+  background-color: #e0f2f1;
+}
+
+body.high-contrast .tabulator .tabulator-header .tabulator-col {
+  background-color: #000;
+  color: #fff;
+}
+
+body.high-contrast .holiday-cell {
+  background-color: #facc15 !important;
+  color: #000;
+}
