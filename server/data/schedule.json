@@ -1,0 +1,17 @@
+{
+  "rangeStart": "2024-01-01",
+  "rangeEnd": "2024-01-28",
+  "employees": [
+    { "id": "emp-1", "name": "Max Mustermann" },
+    { "id": "emp-2", "name": "Erika Muster" }
+  ],
+  "cells": [],
+  "shiftTypes": ["Früh", "Spät", "Nacht", "Frei"],
+  "legend": {
+    "Früh": "Frühschicht (06:00 - 14:00)",
+    "Spät": "Spätschicht (14:00 - 22:00)",
+    "Nacht": "Nachtschicht (22:00 - 06:00)",
+    "Frei": "Freier Tag"
+  },
+  "notes": ""
+}
